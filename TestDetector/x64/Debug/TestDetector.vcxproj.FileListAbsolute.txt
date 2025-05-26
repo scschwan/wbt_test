@@ -1,0 +1,1 @@
+C:\workspace\WBT\test_proj\TestDetector\x64\Debug\TestDetector.exe

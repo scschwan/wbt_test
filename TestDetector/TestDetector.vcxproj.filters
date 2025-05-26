@@ -27,13 +27,13 @@
     <ClCompile Include="image_result.c">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="config_parser.c">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
     <ClCompile Include="image_processor.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="opencv_test.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="sample_image.c">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
@@ -51,9 +51,6 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="image_result.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="config_parser.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="image_processor.h">

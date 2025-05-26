@@ -6,11 +6,11 @@
 #include <windows.h>   // Windows API
 #include <time.h>      // 시간 측정용
 
-#include "simple_types.h"  // 이제 modoo.h와 동일
+#include "simple_types.h"  // modoo.h와 동일한 구조체 사용
 #include "logger.h"
 #include "image_result.h"
 #include "image_processor.h"
-#include "config_parser.h"
+// config_parser.h 제거하고 modoo.h의 함수 사용
 
 // 함수 선언 (프로토타입)
 void print_usage(const char* program_name);
@@ -22,7 +22,7 @@ int process_single_image(const char* image_path, Modoo_cfg* cfg, int mode);
 void init_default_hsv_colors(Modoo_cfg* cfg);
 // OpenCV 테스트 함수들
 int test_opencv_basic();
-int test_image_load(const char* filepath);  // 추가
+int test_image_load(const char* filepath);
 
 void print_usage(const char* program_name) {
     printf("Usage: %s <mode>\n", program_name);
@@ -96,7 +96,7 @@ int count_image_files(const char* folder_path) {
     return count;
 }
 
-// 설정 파일 읽기 (원본 modoo.h 구조체 기준)
+// 설정 파일 읽기 - modoo.c의 readMainSetFromFile 함수 사용
 int load_simple_config(Modoo_cfg* cfg) {
     // 기본값 설정
     memset(cfg, 0, sizeof(Modoo_cfg));
@@ -135,7 +135,7 @@ int load_simple_config(Modoo_cfg* cfg) {
     cfg->HsvBufferV = 50;
 
     cfg->binaryValue = 128;
-    cfg->hsvEnable = 1;
+    cfg->hsvEnable = 0; // 기본적으로 HSV 비활성화
     cfg->debugMode = 1;
 
     // 좌표 변환 설정
@@ -161,22 +161,28 @@ int load_simple_config(Modoo_cfg* cfg) {
     // 기본 HSV 색상들 설정
     init_default_hsv_colors(cfg);
 
-    // 제품별 색상 매핑 기본값
+    // 제품별 색상 매핑 기본값 - 순환하지 않고 기본값으로 설정
     for (int i = 0; i < 20; i++) {
-        cfg->productNumColor[i] = (i % 6) + 1; // 1-6 순환
+        cfg->productNumColor[i] = 1; // 모든 제품을 기본적으로 1번 색상으로 설정
         cfg->isDetect[i] = 1; // 모든 검사 활성화
     }
 
-    // 설정 파일 읽기 시도 (안전한 버전)
-    printf("Attempting to load configuration file...\n");
-    if (read_config_file("option/main.txt", cfg)) {
-        printf("Configuration loaded from file successfully\n");
+    // modoo.c의 readMainSetFromFile 함수 사용
+    printf("Attempting to load configuration file using modoo.c...\n");
+    if (readMainSetFromFile("option/main.txt", cfg) == 0) {
+        printf("Configuration loaded from file successfully using modoo.c\n");
 
         // 설정 검증
-        if (!validate_config(cfg)) {
-            printf("Warning: Configuration validation failed, using default values\n");
-            // 검증 실패 시 기본값 재설정
+        if (cfg->maxColorCount <= 0) {
+            printf("Warning: No HSV colors loaded, using default values\n");
             init_default_hsv_colors(cfg);
+        }
+
+        // HSV 색상 정보 출력
+        printf("Loaded %d HSV colors:\n", cfg->maxColorCount);
+        for (int i = 0; i < cfg->maxColorCount && i < 6; i++) {
+            printf("  Color %d: H=%d, S=%d, V=%d, ID=%d\n",
+                i, cfg->hsvColors[i].h, cfg->hsvColors[i].s, cfg->hsvColors[i].v, cfg->hsvColors[i].id);
         }
     }
     else {
@@ -184,20 +190,126 @@ int load_simple_config(Modoo_cfg* cfg) {
         create_default_config_file(cfg);
     }
 
-    // 디버그 모드면 설정 출력
+    // 디버그 모드면 주요 설정 출력
     if (cfg->debugMode) {
-        print_config(cfg);
+        printf("\n=== Configuration Summary ===\n");
+        printf("HSVEnable: %d\n", cfg->hsvEnable);
+        printf("BinaryValue: %d\n", cfg->binaryValue);
+        printf("MinContourArea: %d\n", cfg->MinContourArea);
+        printf("MaxContourArea: %d\n", cfg->MaxContourArea);
+        printf("debugMode: %d\n", cfg->debugMode);
+        printf("VisionID: %d\n", cfg->VisionID);
+        printf("ProductNum: %d\n", cfg->ProductNum);
+        printf("HSV Buffer (H,S,V): %d,%d,%d\n", cfg->HsvBufferH, cfg->HsvBufferS, cfg->HsvBufferV);
+        printf("Mark Area Range: %d ~ %d\n", cfg->minMarkArea, cfg->maxMarkArea);
+        printf("Black Mark Area Range: %d ~ %d\n", cfg->blackMinMarkArea, cfg->blackMaxMarkArea);
+        printf("===============================\n\n");
     }
 
     return 1;
 }
 
-// 기본 설정 파일 생성 (업데이트된 버전)
+// 기본 설정 파일 생성
 void create_default_config_file(Modoo_cfg* cfg) {
-    write_config_file("option/main.txt", cfg);
+    FILE* file = fopen("option/main.txt", "w");
+    if (file == NULL) {
+        printf("Error: Cannot create default config file\n");
+        return;
+    }
+
+    fprintf(file, "# Default configuration file for TestDetector\n");
+    fprintf(file, "TriggerMode=SW\n");
+    fprintf(file, "DetectionMode=Rule\n");
+    fprintf(file, "ThresholdMode=Binary\n");
+    fprintf(file, "BinaryValue=%d\n", cfg->binaryValue);
+    fprintf(file, "CameraModelName=%s\n", cfg->camModelName ? cfg->camModelName : "TestCamera");
+    fprintf(file, "CameraSerialNum=%s\n", cfg->camSerialNum ? cfg->camSerialNum : "123456");
+    fprintf(file, "HSVEnable=False\n");
+    fprintf(file, "MinContourArea=%d\n", cfg->MinContourArea);
+    fprintf(file, "MaxContourArea=%d\n", cfg->MaxContourArea);
+    fprintf(file, "VisionID=%d\n", cfg->VisionID);
+    fprintf(file, "PortNum=%d\n", cfg->PortNum);
+    fprintf(file, "origin_vision_x=%.0f\n", cfg->origin_vision_x);
+    fprintf(file, "origin_vision_y=%.0f\n", cfg->origin_vision_y);
+    fprintf(file, "origin_robot_x=%.3f\n", cfg->origin_robot_x);
+    fprintf(file, "origin_robot_y=%.3f\n", cfg->origin_robot_y);
+    fprintf(file, "res_x=%.8f\n", cfg->res_x);
+    fprintf(file, "res_y=%.8f\n", cfg->res_y);
+    fprintf(file, "Max_vision_x=%d\n", cfg->Max_vision_x);
+    fprintf(file, "Max_vision_y=%d\n", cfg->Max_vision_y);
+    fprintf(file, "minMarkArea=%d\n", cfg->minMarkArea);
+    fprintf(file, "maxMarkArea=%d\n", cfg->maxMarkArea);
+    fprintf(file, "HsvBufferH=%d\n", cfg->HsvBufferH);
+    fprintf(file, "HsvBufferS=%d\n", cfg->HsvBufferS);
+    fprintf(file, "HsvBufferV=%d\n", cfg->HsvBufferV);
+    fprintf(file, "debugMode=%d\n", cfg->debugMode);
+    fprintf(file, "minSUMMarkArea=%d\n", cfg->minSUMMarkArea);
+    fprintf(file, "maxSUMMarkArea=%d\n", cfg->maxSUMMarkArea);
+    fprintf(file, "BlackTagNum=%d\n", cfg->BlackTagNum);
+    fprintf(file, "blackMinMarkArea=%d\n", cfg->blackMinMarkArea);
+    fprintf(file, "blackMaxMarkArea=%d\n", cfg->blackMaxMarkArea);
+    fprintf(file, "BlackEllipseMinSize=%d\n", cfg->BlackEllipseMinSize);
+    fprintf(file, "BlackEllipseMaxSize=%d\n", cfg->BlackEllipseMaxSize);
+
+    // HSV 색상들 저장
+    for (int i = 0; i < cfg->maxColorCount; i++) {
+        fprintf(file, "HsvColor%d=%d,%d,%d,%d\n", i,
+            cfg->hsvColors[i].h, cfg->hsvColors[i].s, cfg->hsvColors[i].v, cfg->hsvColors[i].id);
+    }
+
+    // 제품별 색상 매핑 저장
+    for (int i = 0; i < 20; i++) {
+        fprintf(file, "productNumColor%d=%d\n", i + 1, cfg->productNumColor[i]);
+        fprintf(file, "isDetect%d=%d\n", i + 1, cfg->isDetect[i]);
+        fprintf(file, "area%d=%d\n", i + 1, cfg->areas[i]);
+    }
+
+    fclose(file);
+    printf("Default configuration file created: option/main.txt\n");
 }
 
-// 실제 이미지 처리 함수 (더미에서 실제 구현으로 교체)
+// main.c에 추가할 PN 번호 추출 함수
+int extract_pn_from_filename(const char* filename) {
+    // 파일명에서 "_PN" 패턴을 찾기
+    char* pn_pos = strstr(filename, "_PN");
+    if (pn_pos == NULL) {
+        pn_pos = strstr(filename, "PN"); // PN만 있는 경우도 체크
+    }
+
+    if (pn_pos != NULL) {
+        // "_PN" 다음 문자부터 숫자 추출
+        char* num_start = pn_pos + (pn_pos[0] == '_' ? 3 : 2); // "_PN" 또는 "PN" 건너뛰기
+        int pn_number = atoi(num_start);
+        printf("    [DEBUG] Extracted PN number: %d from filename: %s\n", pn_number, filename);
+        return pn_number;
+    }
+
+    printf("    [WARNING] No PN number found in filename: %s, using default 1\n", filename);
+    return 1; // 기본값
+}
+
+// setContourAreaByProduct 함수 (detector.c에서 가져옴)
+void setContourAreaByProduct(Modoo_cfg* modoo_cfg, int productNum) {
+    // productNum이 유효한 인덱스인지 확인
+    if (productNum < 0 || productNum >= MAX_AREAS) {
+        fprintf(stderr, "Invalid productNum: %d\n", productNum);
+        return;
+    }
+
+    // 해당 productNum에 대응하는 area 값
+    int areaValue = modoo_cfg->areas[productNum];
+
+    // areaThresholdPercentLower와 areaThresholdPercentUpper를 곱한 값을 각각 MinContourArea, MaxContourArea에 설정
+    modoo_cfg->MinContourArea = (int)(areaValue * modoo_cfg->areaThresholdPercentLower);
+    modoo_cfg->MaxContourArea = (int)(areaValue * modoo_cfg->areaThresholdPercentUpper);
+
+    printf("Set MinContourArea to %d and MaxContourArea to %d for productNum %d\n",
+        modoo_cfg->MinContourArea, modoo_cfg->MaxContourArea, productNum);
+}
+
+
+// 실제 이미지 처리 함수 (동일)
+// process_single_image 함수 수정 부분
 int process_single_image(const char* image_path, Modoo_cfg* cfg, int mode) {
     char log_msg[512];
     sprintf_s(log_msg, sizeof(log_msg), "Processing: %s (mode %d)", image_path, mode);
@@ -205,6 +317,21 @@ int process_single_image(const char* image_path, Modoo_cfg* cfg, int mode) {
 
     // 처리 시간 측정 시작
     clock_t start_time = clock();
+
+    // 파일명에서 PN 번호 추출 (detector.c 로직 적용)
+    int extracted_pn = extract_pn_from_filename(image_path);
+    cfg->ProductNum = extracted_pn;
+
+    // VisionID가 2인 경우 10을 더함 (detector.c와 동일)
+    if (cfg->VisionID == 2) {
+        cfg->ProductNum = cfg->ProductNum + 10;
+    }
+
+    printf("    [INFO] ProductNum set to: %d (extracted PN: %d, VisionID: %d)\n",
+        cfg->ProductNum, extracted_pn, cfg->VisionID);
+
+    // 해당 ProductNum에 맞는 Contour Area 설정
+    setContourAreaByProduct(cfg, cfg->ProductNum - 1);
 
     // 결과 구조체 초기화
     ImageProcessResult result;
@@ -219,6 +346,8 @@ int process_single_image(const char* image_path, Modoo_cfg* cfg, int mode) {
     int processing_result = 0;
 
     printf("  -> Attempting to process image with OpenCV...\n");
+    printf("  -> ProductNum: %d, Target productNumColor: %d\n",
+        cfg->ProductNum, cfg->productNumColor[cfg->ProductNum - 1]);
 
     if (mode == 1) {
         // Normal detection mode
@@ -339,7 +468,7 @@ int main(int argc, char** argv) {
 
     printf("\nFound %d image files\n\n", image_count);
 
-    // 설정 로드
+    // 설정 로드 (modoo.c 사용)
     Modoo_cfg cfg;
     if (!load_simple_config(&cfg)) {
         printf("Error: Failed to load configuration\n");
@@ -467,17 +596,17 @@ int main(int argc, char** argv) {
 void init_default_hsv_colors(Modoo_cfg* cfg) {
     // camera.cpp의 targetHsvColors3rd와 동일하게 설정
     // 보라
-    cfg->hsvColors[0].h = 116; cfg->hsvColors[0].s = 171; cfg->hsvColors[0].v = 116; cfg->hsvColors[0].id = 0;
+    cfg->hsvColors[0].h = 116; cfg->hsvColors[0].s = 171; cfg->hsvColors[0].v = 116; cfg->hsvColors[0].id = 1;
     // 핑크  
-    cfg->hsvColors[1].h = 164; cfg->hsvColors[1].s = 145; cfg->hsvColors[1].v = 244; cfg->hsvColors[1].id = 1;
+    cfg->hsvColors[1].h = 164; cfg->hsvColors[1].s = 145; cfg->hsvColors[1].v = 244; cfg->hsvColors[1].id = 2;
     // 빨강
-    cfg->hsvColors[2].h = 5;   cfg->hsvColors[2].s = 179; cfg->hsvColors[2].v = 71;  cfg->hsvColors[2].id = 2;
+    cfg->hsvColors[2].h = 5;   cfg->hsvColors[2].s = 179; cfg->hsvColors[2].v = 71;  cfg->hsvColors[2].id = 3;
     // 노랑
-    cfg->hsvColors[3].h = 36;  cfg->hsvColors[3].s = 130; cfg->hsvColors[3].v = 120; cfg->hsvColors[3].id = 3;
+    cfg->hsvColors[3].h = 36;  cfg->hsvColors[3].s = 130; cfg->hsvColors[3].v = 120; cfg->hsvColors[3].id = 4;
     // 초록
-    cfg->hsvColors[4].h = 63;  cfg->hsvColors[4].s = 125; cfg->hsvColors[4].v = 82;  cfg->hsvColors[4].id = 4;
+    cfg->hsvColors[4].h = 63;  cfg->hsvColors[4].s = 125; cfg->hsvColors[4].v = 82;  cfg->hsvColors[4].id = 5;
     // 파랑
-    cfg->hsvColors[5].h = 111; cfg->hsvColors[5].s = 211; cfg->hsvColors[5].v = 82;  cfg->hsvColors[5].id = 5;
+    cfg->hsvColors[5].h = 111; cfg->hsvColors[5].s = 211; cfg->hsvColors[5].v = 82;  cfg->hsvColors[5].id = 6;
 
     // maxColorCount 설정
     cfg->maxColorCount = 6;
