@@ -6,3 +6,5 @@
 /TestDetector/results
 /TestDetector/TestDetector/x64/Debug
 /TestDetector/test_images
+/TestDetector/test_images_origin
+/TestDetector/test_image_backup
