@@ -14,7 +14,7 @@ extern "C" {
 
     // OpenCV 기반 이미지 처리 함수들
     int load_image_opencv(const char* filepath, void** image_data);
-    int save_result_image_opencv(const char* input_path, const char* output_path, ImageProcessResult* result);
+    //int save_result_image_opencv(const char* input_path, const char* output_path, ImageProcessResult* result, const Mat* processedImage);
 
     // 색상 검출 함수들 (camera.cpp에서 이식)
     int detect_color_region(void* image_data, Modoo_cfg* cfg, int product_color,
