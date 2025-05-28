@@ -1,35 +1,36 @@
 ﻿  image_processor.cpp
-C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(109,16): warning C4244: '초기화 중': 'double'에서 'float'(으)로 변환하면서 데이터가 손실될 수 있습니다.
-C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(163,91): warning C4244: '인수': 'int'에서 'float'(으)로 변환하면서 데이터가 손실될 수 있습니다.
-C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(163,60): warning C4244: '인수': 'int'에서 'float'(으)로 변환하면서 데이터가 손실될 수 있습니다.
-C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(163,46): warning C4305: '인수': 'double'에서 'float'(으)로 잘립니다.
-C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(163,41): warning C4305: '인수': 'double'에서 'float'(으)로 잘립니다.
-C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(267,12): warning C4477: 'printf' : 서식 문자열 '%d'에 'int' 형식의 인수가 필요하지만 variadic 인수 1의 형식이 'unsigned __int64'입니다.
-      C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(267,12):
+C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(115,16): warning C4244: '초기화 중': 'double'에서 'float'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(169,91): warning C4244: '인수': 'int'에서 'float'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(169,60): warning C4244: '인수': 'int'에서 'float'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(169,46): warning C4305: '인수': 'double'에서 'float'(으)로 잘립니다.
+C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(169,41): warning C4305: '인수': 'double'에서 'float'(으)로 잘립니다.
+C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(273,12): warning C4477: 'printf' : 서식 문자열 '%d'에 'int' 형식의 인수가 필요하지만 variadic 인수 1의 형식이 'unsigned __int64'입니다.
+      C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(273,12):
       서식 문자열에서 '%zd'을(를) 사용하는 것이 좋습니다.
   
-C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(798,16): warning C4477: 'printf' : 서식 문자열 '%d'에 'int' 형식의 인수가 필요하지만 variadic 인수 1의 형식이 'unsigned __int64'입니다.
-      C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(798,16):
+C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(819,16): warning C4477: 'printf' : 서식 문자열 '%d'에 'int' 형식의 인수가 필요하지만 variadic 인수 1의 형식이 'unsigned __int64'입니다.
+      C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(819,16):
       서식 문자열에서 '%zd'을(를) 사용하는 것이 좋습니다.
   
-C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(837,35): warning C4244: '=': 'double'에서 'int'(으)로 변환하면서 데이터가 손실될 수 있습니다.
-C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(848,31): warning C4244: '=': 'double'에서 'int'(으)로 변환하면서 데이터가 손실될 수 있습니다.
-C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1119,24): warning C4477: 'printf' : 서식 문자열 '%s'에 'char *' 형식의 인수가 필요하지만 variadic 인수 1의 형식이 'std::basic_string<char,std::char_traits<char>,std::allocator<char>>'입니다.
-C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1362,28): warning C4477: 'printf' : 서식 문자열 '%s'에 'char *' 형식의 인수가 필요하지만 variadic 인수 1의 형식이 'std::string'입니다.
-C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1379,28): warning C4477: 'printf' : 서식 문자열 '%s'에 'char *' 형식의 인수가 필요하지만 variadic 인수 1의 형식이 'std::string'입니다.
-C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1404,24): warning C4477: 'printf' : 서식 문자열 '%zu'에 'unsigned __int64' 형식의 인수가 필요하지만 variadic 인수 1의 형식이 'double'입니다.
-C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1404,24): warning C4477: 'printf' : 서식 문자열 '%zu'에 'unsigned __int64' 형식의 인수가 필요하지만 variadic 인수 2의 형식이 'int'입니다.
-      C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1404,24):
+C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(859,35): warning C4244: '=': 'double'에서 'int'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(870,31): warning C4244: '=': 'double'에서 'int'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1386,28): warning C4477: 'printf' : 서식 문자열 '%s'에 'char *' 형식의 인수가 필요하지만 variadic 인수 1의 형식이 'std::string'입니다.
+C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1403,28): warning C4477: 'printf' : 서식 문자열 '%s'에 'char *' 형식의 인수가 필요하지만 variadic 인수 1의 형식이 'std::string'입니다.
+C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1428,24): warning C4477: 'printf' : 서식 문자열 '%zu'에 'unsigned __int64' 형식의 인수가 필요하지만 variadic 인수 1의 형식이 'double'입니다.
+C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1428,24): warning C4477: 'printf' : 서식 문자열 '%zu'에 'unsigned __int64' 형식의 인수가 필요하지만 variadic 인수 2의 형식이 'int'입니다.
+      C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1428,24):
       서식 문자열에서 '%u'을(를) 사용하는 것이 좋습니다.
-      C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1404,24):
+      C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1428,24):
       서식 문자열에서 '%I32u'을(를) 사용하는 것이 좋습니다.
   
-C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1404,24): warning C4477: 'printf' : 서식 문자열 '%zu'에 'unsigned __int64' 형식의 인수가 필요하지만 variadic 인수 3의 형식이 'int'입니다.
-      C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1404,24):
+C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1428,24): warning C4477: 'printf' : 서식 문자열 '%zu'에 'unsigned __int64' 형식의 인수가 필요하지만 variadic 인수 3의 형식이 'int'입니다.
+      C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1428,24):
       서식 문자열에서 '%u'을(를) 사용하는 것이 좋습니다.
-      C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1404,24):
+      C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1428,24):
       서식 문자열에서 '%I32u'을(를) 사용하는 것이 좋습니다.
   
+C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1442,16): warning C4477: 'printf' : 서식 문자열 '%d'에 'int' 형식의 인수가 필요하지만 variadic 인수 2의 형식이 'double'입니다.
+C:\workspace\WBT\test_proj\TestDetector\image_processor.cpp(1442,16): warning C4477: 'printf' : 서식 문자열 '%d'에 'int' 형식의 인수가 필요하지만 variadic 인수 3의 형식이 'double'입니다.
   TestDetector.vcxproj -> C:\workspace\WBT\test_proj\x64\Debug\TestDetector.exe
   'pwsh.exe'은(는) 내부 또는 외부 명령, 실행할 수 있는 프로그램, 또는
   배치 파일이 아닙니다.
