@@ -28,7 +28,8 @@ struct ImageData {
 
 //2025.05.28
 //디버깅 체크용 이미지 생성
-static bool debugImageCreate = false;
+//static bool debugImageCreate = false;
+bool debugImageCreate = true;
 int totalCount = 0;
 double totalArea = 0.0;
 
@@ -59,6 +60,166 @@ extern "C" int load_image_opencv(const char* filepath, void** image_data) {
         cerr << "OpenCV Error in load_image_opencv: " << e.what() << endl;
         return 0;
     }
+}
+
+//함수 시작 부분에 추가할 사전 계산 변수들
+void optimized_preprocessing() {
+    // 1. 사전 계산: erosion element를 한 번만 생성
+    static cv::Mat erosion_element_cache;
+    static bool erosion_element_initialized = false;
+
+    if (!erosion_element_initialized) {
+        int erosionSize = 15;
+        erosion_element_cache = cv::getStructuringElement(cv::MORPH_ELLIPSE,
+            cv::Size(2 * erosionSize + 1, 2 * erosionSize + 1),
+            cv::Point(erosionSize, erosionSize));
+        erosion_element_initialized = true;
+    }
+
+    // 2. 재사용 가능한 Mat 객체들을 외부에서 미리 선언
+    static cv::Mat reusable_mask;
+    static cv::Mat reusable_cropped;
+    static cv::Mat reusable_white_cropped;
+}
+
+
+// 텍스트 위치 자동 조정 함수
+Point adjustTextPosition(Point center, int imageWidth, int imageHeight, int textWidth, int textHeight, int offsetX, int offsetY) {
+    Point textPos = Point(center.x + offsetX, center.y + offsetY);
+
+    // 오른쪽 경계 체크 - 텍스트가 이미지 밖으로 나가면 왼쪽으로 이동
+    if (textPos.x + textWidth > imageWidth) {
+        textPos.x = center.x - textWidth - abs(offsetX);  // 중심점 왼쪽으로 이동
+        if (textPos.x < 0) {
+            textPos.x = 10;  // 최소 여백 확보
+        }
+    }
+
+    // 아래쪽 경계 체크 - 텍스트가 이미지 밖으로 나가면 위쪽으로 이동
+    if (textPos.y + textHeight > imageHeight) {
+        textPos.y = center.y - abs(offsetY) - textHeight;
+        if (textPos.y < textHeight) {
+            textPos.y = textHeight + 5;  // 최소 여백 확보
+        }
+    }
+
+    // 상단 경계 체크
+    if (textPos.y < textHeight) {
+        textPos.y = textHeight + 5;
+    }
+
+    // 좌측 경계 체크
+    if (textPos.x < 0) {
+        textPos.x = 10;
+    }
+
+    return textPos;
+}
+
+
+// 오버로드 버전 - 더 간단한 호출을 위한 버전
+bool saveDetectionVisualization(const Mat& contourImage, const Mat& mask,
+    const Point& center, int radius, double area,
+    const Scalar& targetHsv, int& detectionIndex,
+    const string& filePrefix) {
+
+    try {
+    // 시각화를 위한 이미지 생성
+    Mat detectionVisualization = contourImage.clone();
+
+    // 이미지 크기 정보
+    int imageWidth = detectionVisualization.cols;
+    int imageHeight = detectionVisualization.rows;
+
+    // 검출된 원을 초록색으로 그리기
+    circle(detectionVisualization, center, radius, Scalar(0, 255, 0), 2);
+    circle(detectionVisualization, center, 2, Scalar(0, 0, 255), -1); // 중심점
+
+    // 텍스트 정보 생성
+    string hsvText = "HSV(" + to_string(static_cast<int>(targetHsv[0])) + "," +
+        to_string(static_cast<int>(targetHsv[1])) + "," +
+        to_string(static_cast<int>(targetHsv[2])) + ")";
+        string areaText = "Area: " + to_string(static_cast<int>(area));
+        string radiusText = "Radius: " + to_string(radius);
+
+    // 텍스트 크기 계산
+    double fontScale = 0.5;
+    int thickness = 1;
+    int baseline = 0;
+
+    Size hsvTextSize = getTextSize(hsvText, FONT_HERSHEY_SIMPLEX, fontScale, thickness, &baseline);
+    Size areaTextSize = getTextSize(areaText, FONT_HERSHEY_SIMPLEX, fontScale, thickness, &baseline);
+    Size radiusTextSize = getTextSize(radiusText, FONT_HERSHEY_SIMPLEX, fontScale, thickness, &baseline);
+
+    // 텍스트 위치 자동 조정
+    Point hsvTextPos = adjustTextPosition(center, imageWidth, imageHeight,
+        hsvTextSize.width, hsvTextSize.height, 10, -30);
+    Point areaTextPos = adjustTextPosition(center, imageWidth, imageHeight,
+        areaTextSize.width, areaTextSize.height, 10, -10);
+    Point radiusTextPos = adjustTextPosition(center, imageWidth, imageHeight,
+        radiusTextSize.width, radiusTextSize.height, 10, 10);
+
+    // 텍스트 배경 및 텍스트 그리기
+    Scalar textBgColor = Scalar(0, 0, 0);
+    Scalar textColor = Scalar(255, 255, 255);
+
+    // 배경 사각형들
+    rectangle(detectionVisualization,
+        Point(hsvTextPos.x - 2, hsvTextPos.y - hsvTextSize.height - 2),
+        Point(hsvTextPos.x + hsvTextSize.width + 2, hsvTextPos.y + 2),
+        textBgColor, -1);
+    rectangle(detectionVisualization,
+        Point(areaTextPos.x - 2, areaTextPos.y - areaTextSize.height - 2),
+        Point(areaTextPos.x + areaTextSize.width + 2, areaTextPos.y + 2),
+        textBgColor, -1);
+    rectangle(detectionVisualization,
+        Point(radiusTextPos.x - 2, radiusTextPos.y - radiusTextSize.height - 2),
+        Point(radiusTextPos.x + radiusTextSize.width + 2, radiusTextPos.y + 2),
+        textBgColor, -1);
+
+    // 텍스트 그리기
+    putText(detectionVisualization, hsvText, hsvTextPos,
+        FONT_HERSHEY_SIMPLEX, fontScale, textColor, thickness);
+    putText(detectionVisualization, areaText, areaTextPos,
+        FONT_HERSHEY_SIMPLEX, fontScale, textColor, thickness);
+    putText(detectionVisualization, radiusText, radiusTextPos,
+        FONT_HERSHEY_SIMPLEX, fontScale, textColor, thickness);
+
+    // 마스크 오버레이
+    if (!mask.empty()) {
+        Mat maskOverlay;
+        if (mask.channels() == 1) {
+            cvtColor(mask, maskOverlay, COLOR_GRAY2BGR);
+        }
+        else {
+            maskOverlay = mask.clone();
+        }
+        maskOverlay *= 0.3;
+        detectionVisualization += maskOverlay;
+    }
+
+    // 파일 저장
+    string detectionImagePath = "results/" + filePrefix + "_" + to_string(detectionIndex) + ".jpg";
+        bool saveSuccess = imwrite(detectionImagePath, detectionVisualization);
+
+    if (saveSuccess) {
+        printf("    [DEBUG] Detection visualization saved: %s (HSV: %d,%d,%d, Area: %.0f, Center: %d,%d)\n",
+            detectionImagePath.c_str(),
+            static_cast<int>(targetHsv[0]), static_cast<int>(targetHsv[1]), static_cast<int>(targetHsv[2]),
+            area, center.x, center.y);
+    }
+    else {
+        printf("    [ERROR] Failed to save detection visualization: %s\n", detectionImagePath.c_str());
+    }
+
+    detectionIndex++;
+    return saveSuccess;
+
+}
+catch (const cv::Exception& e) {
+    printf("    [ERROR] OpenCV error in saveDetectionVisualization: %s\n", e.what());
+        return false;
+}
 }
 
 // camera.cpp의 setColorRange 함수 그대로 이식
@@ -203,6 +364,19 @@ bool detectCirclesAndEllipses(const cv::Mat& image, cv::Point& center, int radiu
 // detectColorRegion 함수 시작 부분에 추가 (함수 맨 위에)
 static int detectionIndex = 0; // 전역적으로 검출 인덱스 관리
 static bool firstYN = false;
+
+
+bool isRedColor(int hue , int productNumColor ) {
+    if (productNumColor == 3) {
+        //return true;
+        return (hue >= 0 && hue <= 10) || (hue >= 170 && hue <= 179);
+    }
+    else {
+        return (hue >= 0 && hue <= 10) || (hue >= 170 && hue <= 179);
+    }
+    
+}
+
 // camera.cpp의 detectColorRegion 함수 그대로 이식 (이중 체크 로직 포함)
 bool detectColorRegion(const Mat& inputImage, Modoo_cfg* modoo_cfg, int productNumColor, const Scalar& targetHsv, Point& circleCenter, int& circleRadius, Point& secondCenter, int& secondRadius) {
     //2025.03.10
@@ -244,7 +418,18 @@ bool detectColorRegion(const Mat& inputImage, Modoo_cfg* modoo_cfg, int productN
 
     // 3. 마스크 생성
     Mat mask;
-    inRange(hsvImage, lowerTargetColor, upperTargetColor, mask);
+    
+    //inRange(hsvImage, lowerTargetColor, upperTargetColor, mask);
+    // inRange 호출 부분을 다음과 같이 수정:
+    if (isRedColor(static_cast<int>(targetHsv[0]), productNumColor)) {
+        Mat mask1, mask2;
+        inRange(hsvImage, Scalar(0, (int)lowerTargetColor[1], (int)lowerTargetColor[2]), Scalar(10, (int)upperTargetColor[1], (int)upperTargetColor[2]), mask1);
+        inRange(hsvImage, Scalar(170, (int)lowerTargetColor[1], (int)lowerTargetColor[2]), Scalar(179, (int)upperTargetColor[1], (int)upperTargetColor[2]), mask2);
+        bitwise_or(mask1, mask2, mask);
+    }
+    else {
+        inRange(hsvImage, lowerTargetColor, upperTargetColor, mask);
+    }
 
     //imshow("mask", mask);
     //waitKey(2000);
@@ -353,6 +538,7 @@ bool detectColorRegion(const Mat& inputImage, Modoo_cfg* modoo_cfg, int productN
                 if (debugImageCreate) {
                     // =================== 검출된 원 시각화 및 저장 ===================
                    // 시각화를 위한 이미지 생성 (contourImage 복사)
+                    /*
                     Mat detectionVisualization = contourImage.clone();
 
                     // 검출된 원을 초록색으로 그리기
@@ -394,6 +580,9 @@ bool detectColorRegion(const Mat& inputImage, Modoo_cfg* modoo_cfg, int productN
                     }
 
                     detectionIndex++; // 다음 저장을 위해 인덱스 증가
+                    */
+                    bool success = saveDetectionVisualization(contourImage, mask, center, radius, area,
+                        targetHsv, detectionIndex, "color_detection_");
                     // =================== 검출된 원 시각화 및 저장 끝 ===================
                 }
                
@@ -449,6 +638,7 @@ bool detectColorRegion(const Mat& inputImage, Modoo_cfg* modoo_cfg, int productN
                         if (debugImageCreate) {
                             // =================== 검출된 원 시각화 및 저장 ===================
                         // 시각화를 위한 이미지 생성 (contourImage 복사)
+                            /*
                             Mat detectionVisualization = contourImage.clone();
 
                             // 검출된 원을 초록색으로 그리기
@@ -490,6 +680,9 @@ bool detectColorRegion(const Mat& inputImage, Modoo_cfg* modoo_cfg, int productN
                             }
 
                             detectionIndex++; // 다음 저장을 위해 인덱스 증가
+                            */
+                            bool success = saveDetectionVisualization(contourImage, mask, circleCenter, circleRadius, area,
+                                targetHsv, detectionIndex, "double_color_detection_");
                             // =================== 검출된 원 시각화 및 저장 끝 ==================
                         }
                         
@@ -510,6 +703,7 @@ bool detectColorRegion(const Mat& inputImage, Modoo_cfg* modoo_cfg, int productN
                     if (debugImageCreate) {
                         // =================== 검출된 원 시각화 및 저장 ===================
                         // 시각화를 위한 이미지 생성 (contourImage 복사)
+                        /*
                         Mat detectionVisualization = contourImage.clone();
 
                         // 검출된 원을 초록색으로 그리기
@@ -551,6 +745,9 @@ bool detectColorRegion(const Mat& inputImage, Modoo_cfg* modoo_cfg, int productN
                         }
 
                         detectionIndex++; // 다음 저장을 위해 인덱스 증가
+                        */
+                        bool success = saveDetectionVisualization(contourImage, mask, circleCenter, circleRadius, area,
+                            targetHsv, detectionIndex, "color_detection_non_circle_");
                         // =================== 검출된 원 시각화 및 저장 끝 ===================
                     }
 
@@ -569,6 +766,70 @@ bool detectColorRegion(const Mat& inputImage, Modoo_cfg* modoo_cfg, int productN
         else
         {
             printf("    [DEBUG] [detectColorRegion] non mark boundary: %f  \n", area);
+
+            if (debugImageCreate && area > 20) {
+                // =================== 검출된 원 시각화 및 저장 ===================
+                // 시각화를 위한 이미지 생성 (contourImage 복사)
+                /*
+                Mat detectionVisualization = contourImage.clone();
+                // 모멘트를 계산하여 중심점과 반지름 반환
+                Moments m = moments(contour);
+
+                // 기존 모멘트 기반 계산
+                Point center(static_cast<int>(m.m10 / m.m00), static_cast<int>(m.m01 / m.m00));
+                int radius = static_cast<int>(sqrt(area / CV_PI));
+
+
+                // 검출된 원을 초록색으로 그리기
+                circle(detectionVisualization, center, radius, Scalar(0, 255, 0), 2);
+                circle(detectionVisualization, center, 2, Scalar(0, 0, 255), -1); // 중심점
+
+                // HSV 정보와 면적 정보를 텍스트로 표시
+                string hsvText = "HSV(" + to_string(static_cast<int>(targetHsv[0])) + "," +
+                    to_string(static_cast<int>(targetHsv[1])) + "," +
+                    to_string(static_cast<int>(targetHsv[2])) + ")";
+                string areaText = "Area: " + to_string(static_cast<int>(area));
+                string radiusText = "Radius: " + to_string(radius);
+
+                putText(detectionVisualization, hsvText, Point(center.x + 10, center.y - 30),
+                    FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 255, 255), 1);
+                putText(detectionVisualization, areaText, Point(center.x + 10, center.y - 10),
+                    FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 255, 255), 1);
+                putText(detectionVisualization, radiusText, Point(center.x + 10, center.y + 10),
+                    FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 255, 255), 1);
+
+                // 마스크를 오버레이로 표시 (반투명하게)
+                Mat maskOverlay;
+                cvtColor(mask, maskOverlay, COLOR_GRAY2BGR);
+                maskOverlay *= 0.3; // 투명도 조절
+                detectionVisualization += maskOverlay;
+
+                // 파일명 생성 및 저장
+                string detectionImagePath = "results/color_detection_non_boundary_" + to_string(detectionIndex) + ".jpg";
+                bool saveSuccess = imwrite(detectionImagePath, detectionVisualization);
+
+                if (saveSuccess) {
+                    printf("    [DEBUG] Color detection image saved: %s (HSV: %d,%d,%d, Area: %.0f)\n",
+                        detectionImagePath.c_str(),
+                        static_cast<int>(targetHsv[0]), static_cast<int>(targetHsv[1]), static_cast<int>(targetHsv[2]),
+                        area);
+                }
+                else {
+                    printf("    [ERROR] Failed to save color detection image: %s\n", detectionImagePath.c_str());
+                }
+
+                detectionIndex++; // 다음 저장을 위해 인덱스 증가
+                */
+                Moments m = moments(contour);
+
+                // 기존 모멘트 기반 계산
+                Point center(static_cast<int>(m.m10 / m.m00), static_cast<int>(m.m01 / m.m00));
+                int radius = static_cast<int>(sqrt(area / CV_PI));
+
+                bool success = saveDetectionVisualization(contourImage, mask, center, radius, area,
+                    targetHsv, detectionIndex, "color_detection_non_boundary_");
+                // =================== 검출된 원 시각화 및 저장 끝 ===================
+            }
             //cout << "감지 실패, 최대 감지 면적 : " << areaMax << endl;
             //Mat contourSmaill = inputImage.clone(); // 원본 이미지를 복사
             //drawContours(contourImage, contour, static_cast<int>(0), Scalar(0, 0, 255), 2); // 빨간색, 두께 2
@@ -653,6 +914,7 @@ bool detectBlackArea(const Mat& inputImage, int buffer, Point& center, int& radi
                 if (debugImageCreate) {
                     // =================== 검출된 원 시각화 및 저장 ===================
                     // 시각화를 위한 이미지 생성 (contourImage 복사)
+                    
                     Mat detectionVisualization = thresholdedImage.clone();
 
                     // 검출된 원을 초록색으로 그리기
@@ -689,6 +951,8 @@ bool detectBlackArea(const Mat& inputImage, int buffer, Point& center, int& radi
                     }
 
                     detectionIndex++; // 다음 저장을 위해 인덱스 증가
+                   
+                   
                     // =================== 검출된 원 시각화 및 저장 끝 ===================
 
                 }
@@ -697,9 +961,17 @@ bool detectBlackArea(const Mat& inputImage, int buffer, Point& center, int& radi
                 //원 검출 별도 로직 추가
                 if (radius < 14) {
                     cout << "    [DEBUG] detectBlackArea radius too small -> false  " << "Area : " << to_string(static_cast<int>(area)) << "  Radius : " << to_string(radius) << endl;
-                    return false;
-                }
 
+                    //wrea 값이 많다면 해당 기준도 고려
+                    if (radius > 9 && whitePixelCount > 2500) {
+                        cout << "    [DEBUG] detectBlackArea radius too small but whitePixelCount so collect -> false  " << "whitePixelCount : " << to_string(whitePixelCount) <<  endl;
+                        return true;
+                    }
+                    else {
+                        return false;
+                    }
+                } 
+                
                 return true;
             }
             else {
@@ -798,7 +1070,16 @@ bool detectColorRegion3rd(const Mat& inputImage, Modoo_cfg modoo_cfg, int produc
 
     // 3. 마스크 생성
     Mat mask;
-    inRange(hsvImage, lowerTargetColor, upperTargetColor, mask);
+    //inRange(hsvImage, lowerTargetColor, upperTargetColor, mask);
+    if (isRedColor(static_cast<int>(targetHsv[0]), productNumColor)) {
+        Mat mask1, mask2;
+        inRange(hsvImage, Scalar(0, (int)lowerTargetColor[1], (int)lowerTargetColor[2]), Scalar(10, (int)upperTargetColor[1], (int)upperTargetColor[2]), mask1);
+        inRange(hsvImage, Scalar(170, (int)lowerTargetColor[1], (int)lowerTargetColor[2]), Scalar(179, (int)upperTargetColor[1], (int)upperTargetColor[2]), mask2);
+        bitwise_or(mask1, mask2, mask);
+    }
+    else {
+        inRange(hsvImage, lowerTargetColor, upperTargetColor, mask);
+    }
 
     // 5. 컨투어 찾기
     vector<vector<Point>> contours;
@@ -818,8 +1099,9 @@ bool detectColorRegion3rd(const Mat& inputImage, Modoo_cfg modoo_cfg, int produc
         printf("    [DEBUG] detectColorRegion3rd ->Processing image modoo_cfg->minMarkArea: %d  modoo_cfg->maxMarkArea : %d\n", modoo_cfg.minMarkArea, modoo_cfg.maxMarkArea);
         printf("    [DEBUG] [detectColorRegion3rd] found mark Area count: %d  \n", contours.size());
 
-
-        if (area >= modoo_cfg.minMarkArea && area < modoo_cfg.maxMarkArea * 1.3) { // 최소 면적 기준
+        //2025.05.28
+        //3rd 감지 기준을 크게 완화
+        if (area >= modoo_cfg.minMarkArea /3 && area < modoo_cfg.maxMarkArea * 1.3) { // 최소 면적 기준
             // 모멘트를 계산하여 중심점과 반지름 반환
             printf("    [DEBUG] [detectColorRegion3rd] found mark Area : %f  \n", area);
             Moments m = moments(contour);
@@ -878,6 +1160,20 @@ bool detectColorRegion3rd(const Mat& inputImage, Modoo_cfg modoo_cfg, int produc
         else
         {
             printf("    [DEBUG] [detectColorRegion3rd] not found mark Area : %f  \n", area);
+
+            if (debugImageCreate && area > 20) {
+                // =================== 검출된 원 시각화 및 저장 ===================
+              
+                Moments m = moments(contour);
+
+                // 기존 모멘트 기반 계산
+                Point center(static_cast<int>(m.m10 / m.m00), static_cast<int>(m.m01 / m.m00));
+                int radius = static_cast<int>(sqrt(area / CV_PI));
+
+                bool success = saveDetectionVisualization(contourImage, mask, center, radius, area,
+                    targetHsv, detectionIndex, "color_detection_non_boundary_");
+                // =================== 검출된 원 시각화 및 저장 끝 ===================
+            }
         }
     }
 
@@ -929,7 +1225,9 @@ bool detectBlackArea3rd(const Mat& inputImage, int buffer, Point& center, int& r
         double area = contourArea(contour);
         cout << "감지 크기 : " + std::to_string(area) << endl;
 
-        if (area >= modoo_cfg.blackMinMarkArea && area < modoo_cfg.blackMaxMarkArea) { // 최소 면적 기준
+        //2025.05.27
+        //3rd 에서는 좀 더 여유있게 측정
+        if (area >= modoo_cfg.blackMinMarkArea / 4 && area < modoo_cfg.blackMaxMarkArea) { // 최소 면적 기준
             // 모멘트를 계산하여 중심점과 반지름 반환
             Moments m = moments(contour);
             center = Point(static_cast<int>(m.m10 / m.m00), static_cast<int>(m.m01 / m.m00));
@@ -946,12 +1244,15 @@ bool detectBlackArea3rd(const Mat& inputImage, int buffer, Point& center, int& r
             }
             else {
                 std::cout << "No circle detected." << std::endl;
+                return true;
             }
         }
     }
 
     return false;
 }
+
+
 
 // camera.cpp의 CaptureImage 로직을 그대로 이식한 함수
 // camera.cpp의 CaptureImage 로직을 그대로 이식한 함수 (수정 버전)
@@ -1111,20 +1412,6 @@ extern "C" int ProcessImageFromFile_Mode1(const char* filepath, Modoo_cfg* cfg, 
         
 
         for (size_t i = 0; i < contours.size(); ++i) {
-            bool isStickerOn = false;
-            bool isColorStickerOn = false;
-
-            
-
-            // contour를 감싸는 최소 사각형 얻기
-            Rect boundingRect = cv::boundingRect(contours[i]);
-
-            // 바운딩 박스가 이미지 범위를 벗어나지 않도록 확인
-            boundingRect &= Rect(0, 0, ori.cols, ori.rows);
-            if (boundingRect.width <= 0 || boundingRect.height <= 0) {
-                continue;
-            }
-
             // contour의 면적 계산
             double area = contourArea(contours[i]);
 
@@ -1136,6 +1423,39 @@ extern "C" int ProcessImageFromFile_Mode1(const char* filepath, Modoo_cfg* cfg, 
             // 면적에 따라 서로 다른 색상으로 텍스트 표시
             Scalar textColor;
             totalArea = totalArea + area;
+
+            // 2. 면적 범위 체크를 먼저 해서 불필요한 연산 건너뛰기
+            if (area < cfg->MinContourArea || area > cfg->MaxContourArea) {
+                // 범위 밖인 경우 다른 처리 (기존 로직의 else 부분)
+                if (area >= cfg->MinContourArea / 3 && area <= cfg->MaxContourArea * 3) {
+                    printf("    [DEBUG] %zu contours area is not bondary min : %zu , max : %zu \n", area, cfg->MinContourArea, cfg->MaxContourArea);
+                    totalCount++;
+                    Scalar textColor = Scalar(0, 0, 255);
+                    if (cfg->debugMode == 1) {
+                        Rect boundingRect = cv::boundingRect(contours[i]); // 필요할 때만 계산
+                        std::stringstream areaText;
+                        areaText << "Area: " << area;
+                        putText(resultImage, "NG." + areaText.str(), boundingRect.tl(), FONT_HERSHEY_SIMPLEX, 1.5, textColor, 3);
+                    }
+                }
+                continue; // 다음 컨투어로
+            }
+            
+            bool isStickerOn = false;
+            bool isColorStickerOn = false;
+
+            
+            // contour를 감싸는 최소 사각형 얻기
+            Rect boundingRect = cv::boundingRect(contours[i]);
+
+            // 바운딩 박스가 이미지 범위를 벗어나지 않도록 확인
+            boundingRect &= Rect(0, 0, ori.cols, ori.rows);
+            if (boundingRect.width <= 0 || boundingRect.height <= 0) {
+                continue;
+            }
+
+           
+
 
             if (area >= cfg->MinContourArea && area <= cfg->MaxContourArea) {
                 printf("    [DEBUG] Found %f contours area\n", area);
@@ -1171,6 +1491,60 @@ extern "C" int ProcessImageFromFile_Mode1(const char* filepath, Modoo_cfg* cfg, 
                     continue;
                 }
 
+
+                // 8. 마스크 생성 최적화 - 재사용 가능한 Mat 사용
+                static cv::Mat reusable_mask;
+                static cv::Mat erosion_element_cache;
+                static bool erosion_element_initialized = false;
+
+                if (!erosion_element_initialized) {
+                    int erosionSize = 15;
+                    erosion_element_cache = cv::getStructuringElement(cv::MORPH_ELLIPSE,
+                        cv::Size(2 * erosionSize + 1, 2 * erosionSize + 1),
+                        cv::Point(erosionSize, erosionSize));
+                    erosion_element_initialized = true;
+                }
+
+                // 마스크 재사용을 위한 크기 체크 및 재할당
+                if (reusable_mask.size() != median.size() || reusable_mask.type() != CV_8UC1) {
+                    reusable_mask = cv::Mat::zeros(median.size(), CV_8UC1);
+                }
+                else {
+                    reusable_mask.setTo(0); // 기존 Mat을 재사용하되 내용만 초기화
+                }
+
+                cv::drawContours(reusable_mask, contours, static_cast<int>(i), cv::Scalar(255), cv::FILLED);
+                cv::erode(reusable_mask, reusable_mask, erosion_element_cache);
+
+                // 9. 이미지 복사 최적화 - 재사용 가능한 Mat 사용
+                static cv::Mat reusable_cropped;
+                static cv::Mat reusable_white_cropped;
+
+                // croppedImage 최적화
+                if (reusable_cropped.size() != ori.size() || reusable_cropped.type() != ori.type()) {
+                    reusable_cropped = cv::Mat::zeros(ori.size(), ori.type());
+                }
+                else {
+                    reusable_cropped.setTo(cv::Scalar(0, 0, 0));
+                }
+
+                ori.copyTo(reusable_cropped, reusable_mask);
+
+                // whiteCroppedImage 최적화
+                if (reusable_white_cropped.size() != ori.size() || reusable_white_cropped.type() != ori.type()) {
+                    reusable_white_cropped = cv::Mat(ori.size(), ori.type(), cv::Scalar(255, 255, 255));
+                }
+                else {
+                    reusable_white_cropped.setTo(cv::Scalar(255, 255, 255));
+                }
+
+                reusable_cropped.copyTo(reusable_white_cropped, reusable_mask);
+
+                // 10. boundingRect로 크롭 (ROI 사용으로 메모리 복사 최소화)
+                cv::Mat croppedImage = reusable_cropped(boundingRect);
+                cv::Mat whiteCroppedImage = reusable_white_cropped(boundingRect);
+
+                /*
                 // 윤곽선으로부터 마스크 생성
                 cv::Mat mask = cv::Mat::zeros(median.size(), CV_8UC1);
                 cv::drawContours(mask, contours, static_cast<int>(i), cv::Scalar(255), cv::FILLED);
@@ -1192,7 +1566,7 @@ extern "C" int ProcessImageFromFile_Mode1(const char* filepath, Modoo_cfg* cfg, 
 
                 croppedImage = croppedImage(boundingRect);
                 whiteCroppedImage = whiteCroppedImage(boundingRect);
-
+                */
                 // 크롭된 이미지가 비어있지 않은지 확인
                 if (croppedImage.empty() || whiteCroppedImage.empty()) {
                     printf("    [WARNING] Cropped image is empty for contour %zu\n", i);
@@ -1467,6 +1841,7 @@ extern "C" int ProcessImageFromFile_Mode2(const char* filepath, Modoo_cfg* cfg, 
         Mat& resultMat = data->result;
 
         printf("    [DEBUG] Processing Mode 2 (3rd detection): %dx%d\n", ori.cols, ori.rows);
+        printf("**************************************************  \n");
 
         // camera.cpp의 CaptureImage3rd에서 사용하는 크롭 영역 설정
         int buffer = 25;
